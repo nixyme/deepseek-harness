@@ -15,6 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: the ctx.remote merge, the fixed Host facts, and the carrier's
 // `connection/reset` lifecycle event, all through the assembly package.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only pair supplying `$on` and its key face without dragging a build
 // artifact into the Host graph (rationale beside the same pair in
 // settings-scope.ts).
@@ -40,7 +41,7 @@ export type {
  * Required services: the Remote namespace the mirror reads through and the
  * forwarded settings invalidation it refreshes on.
  */
-export const inject = ['remote', 'remote.settings']
+export const inject = ['connection', 'remote', 'remote.settings']
 
 /**
  * Provide the settings-namespace scope service over one shared describe
@@ -53,13 +54,13 @@ export const inject = ['remote', 'remote.settings']
  */
 export function apply(ctx: Context): void {
   const schema = new SettingsSchemaService(ctx)
-  // Resolved once here, where `remote` is declared in this plugin's own
-  // `inject`; the binder hands the same answer to every scope it binds.
+  // Resolved after the injected Connection is available: the binder hands the
+  // same answer to every scope it binds.
   // Host settings cross the same authenticated API as every other page fact.
   // A proxy that enforces request principals opts this non-loopback page in;
   // an ordinary remote page remains process-local by design.
-  const connection = ctx.get('connection') as { authenticatedRemote?: boolean } | undefined
-  const persistence = ctx.remote.$host.isLoopback || connection?.authenticatedRemote === true
+  const connection = ctx.get('connection') as ConnectionHandle
+  const persistence = ctx.remote.$host.isLoopback || connection.authenticatedRemote
     ? 'host'
     : 'memory'
   const mirror = new SettingsDescribeMirror(ctx, persistence)

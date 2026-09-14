@@ -87,6 +87,10 @@ pnpm run demo:ptc -- "task"  # headless PTC mode run (needs key)
 
 If a required `gh`, `pnpm`, build, test, or generator command fails because the sandbox blocks credentials, network, IPC, watching, or nested `sandbox-exec`, retry unchanged with the narrowest host escalation. Require sandbox evidence; never bypass test failures or the product sandbox.
 
+### Production deployment resource guardrails
+
+Treat the DeepSeek ECS host as runtime-only and memory-constrained. Run installs, builds, generated catalogs, and tests locally or in CI; never run them on that host, and never allow two build/install/test scopes to overlap. For an emergency host-only operation, first inspect free memory and running scopes, serialize the single operation under systemd `MemoryMax`/`TasksMax`/`CPUQuota`, stream output to a bounded journal, and stop at the first stall instead of retrying on the same host. Deploy a completed artifact or an exact reviewed commit, snapshot writable state before writers stop, restart only the unit that owns the changed artifact, and verify listener, health, journal, process count, and memory before touching the next unit. Keep the previous branch, unit files, and data backup instantly rollback-ready; if health fails, roll back first and diagnose locally.
+
 ### Run relevant checks locally
 
 Run checks before pushes via [dsh-pre-push-checks](.agents/skills/dsh-pre-push-checks/SKILL.md); report only commands run. After `gh stack sync`, validate immediately; do not merge before checks pass.

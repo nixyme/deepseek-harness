@@ -12,16 +12,18 @@ function bench(options: { authenticatedRemote?: boolean } = {}) {
   })
   const ctx = new Context()
   const remote = new TestRemote(ctx, { settings: { describe: describeCall } })
-  if (options.authenticatedRemote !== undefined) {
-    remote.$host = { home: undefined, isLoopback: false }
-    ctx.provide('connection', { authenticatedRemote: options.authenticatedRemote })
-  }
+  ctx.provide('connection', { authenticatedRemote: options.authenticatedRemote === true })
+  if (options.authenticatedRemote !== undefined) remote.$host = { home: undefined, isLoopback: false }
   return { ctx, describeCall, remote, fiber: ctx.plugin({ inject: [...inject], apply }) }
 }
 
 describe('settings domain base plugin', () => {
   it('keeps the host Loader entry inert', () => {
     expect(hostApply).not.toThrow()
+  })
+
+  it('waits for Connection before deriving remote persistence', () => {
+    expect(inject).toContain('connection')
   })
 
   it('mounts the scope service under settingsScope and reads once eagerly', async () => {

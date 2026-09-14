@@ -51,6 +51,7 @@ async function bench(served?: string[]) {
     session: { modelCatalog: models },
     settings: { describe: describeSettings },
   })
+  ctx.provide('connection', { authenticatedRemote: false })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return {
     ctx, slots: ctx.get('slots') as SlotRegistry, describeCredentials, describeSettings, models, remote,

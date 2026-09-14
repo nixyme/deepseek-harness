@@ -44,6 +44,7 @@ async function bench(isLoopback = true, mock = RemoteMock.create().load(remoteDe
   })
   // The fixed Host facts the settings provider reads its persistence from.
   remote.$host = { home: undefined, isLoopback }
+  ctx.provide('connection', { authenticatedRemote: false })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, remote }
 }

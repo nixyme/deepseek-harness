@@ -45,6 +45,7 @@ async function bench() {
   const mock = RemoteMock.create().load(remoteDefaultResponses)
   onTestFinished(() => { mock.assertNoUnmatched() })
   const remote = new TestRemote(ctx, { settings: mock.remote.settings })
+  ctx.provide('connection', { authenticatedRemote: false })
   ctx.slots.register({
     name: 'root',
     children: {
