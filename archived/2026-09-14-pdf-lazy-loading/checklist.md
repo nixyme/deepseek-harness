@@ -14,7 +14,7 @@
 - [x] Run PDF, module, boot, document-preview, roster, and catalog tests.
 - [x] Run client TypeScript build.
 - [x] Audit production boot graph and verify PDF is lazy and absent from batches.
-- [ ] Commit and push the final source and artifact digest.
-- [ ] Deploy prebuilt artifacts with staged health checks.
-- [ ] Verify cold index/application transfer and lazy PDF bundle behavior.
-- [ ] Archive processing records after production acceptance.
+- [x] Commit and push the final source and artifact digest.
+- [x] Deploy prebuilt artifacts with staged health checks.
+- [x] Verify cold index/application transfer and lazy PDF bundle behavior.
+- [x] Archive processing records after production acceptance.
