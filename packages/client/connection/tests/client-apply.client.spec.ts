@@ -17,11 +17,13 @@ import {
 type Win = {
   location?: { hostname: string; search: string; origin?: string }
   __DSH_TRANSPORT__?: ClientTransportHooks
+  __DSH_AUTHENTICATED_REMOTE__?: unknown
 }
 
 afterEach(() => {
   delete (globalThis as Win).location
   delete (globalThis as Win).__DSH_TRANSPORT__
+  delete (globalThis as Win).__DSH_AUTHENTICATED_REMOTE__
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
@@ -138,7 +140,17 @@ describe('connection client apply', () => {
 
   it('reports non-loopback page authority through the connection handle', async () => {
     ;(globalThis as Win).location = { hostname: '192.0.2.20', search: '' }
-    expect((await mount()).isLoopback).toBe(false)
+    const handle = await mount()
+    expect(handle.isLoopback).toBe(false)
+    expect(handle.authenticatedRemote).toBe(false)
+  })
+
+  it('reports a principal-authenticated remote page to settings consumers', async () => {
+    ;(globalThis as Win).location = { hostname: '8.130.99.203', search: '' }
+    ;(globalThis as Win).__DSH_AUTHENTICATED_REMOTE__ = true
+    const handle = await mount()
+    expect(handle.isLoopback).toBe(false)
+    expect(handle.authenticatedRemote).toBe(true)
   })
 
   it('requires one generation source and ignores a stale source disposer', async () => {

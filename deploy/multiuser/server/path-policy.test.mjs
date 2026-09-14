@@ -16,10 +16,12 @@ async function fixture() {
   await mkdir(join(workspaceRoot, 'member2'), { recursive: true })
   await mkdir(join(workspaceRoot, 'member3'), { recursive: true })
   await mkdir(sharedRoot, { recursive: true })
+  await mkdir(join(sharedRoot, 'common'), { recursive: true })
   await mkdir(join(skillsRoot, 'web-access'), { recursive: true })
   await mkdir(profilesRoot, { recursive: true })
   await mkdir(presetsRoot, { recursive: true })
   await writeFile(join(skillsRoot, 'web-access/SKILL.md'), '# Shared Skill\n')
+  await writeFile(join(sharedRoot, 'common/README.md'), '# Shared project\n')
   await writeFile(join(profilesRoot, 'cordis.yml'), 'plugins: []\n')
   await writeFile(join(presetsRoot, 'default.yaml'), 'presets: []\n')
   await mkdir(join(instanceRoot, 'member2/home/storages/session_projcache/sessions'), {
@@ -265,7 +267,7 @@ test('rewrites a relative workspace create and open path to an allowed absolute 
   }
 })
 
-test('allows members to read shared skills but denies all write paths', async () => {
+test('allows shared files to be read while hiding shared roots from the picker', async () => {
   const f = await fixture()
   try {
     const skillFile = join(f.skillsRoot, 'web-access/SKILL.md')
@@ -282,6 +284,22 @@ test('allows members to read shared skills but denies all write paths', async ()
     }
     assert.equal(
       (await f.policy.inspectPayload('member2', 'directoryPicker/list', list)).allowed,
+      false,
+    )
+
+    const sharedProjects = {
+      args: { path: f.sharedRoot },
+    }
+    assert.equal(
+      (await f.policy.inspectPayload('member2', 'directoryPicker/list', sharedProjects)).allowed,
+      false,
+    )
+
+    const sharedFile = join(f.sharedRoot, 'common/README.md')
+    assert.equal(
+      (await f.policy.inspectPayload('member2', 'workspaceFiles/read', {
+        args: { path: sharedFile },
+      })).allowed,
       true,
     )
 

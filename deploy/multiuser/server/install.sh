@@ -85,9 +85,6 @@ run_install() {
   mkdir -p "$SHARED_ROOT/profiles" "$SHARED_ROOT/skills" "$SHARED_ROOT/agent-presets"
   if [[ -d "$OLD_HOME/skills" ]]; then cp -a "$OLD_HOME/skills/." "$SHARED_ROOT/skills/"; fi
   if [[ -d "$OLD_HOME/.agent-presets" ]]; then cp -a "$OLD_HOME/.agent-presets/." "$SHARED_ROOT/agent-presets/"; fi
-  install -m 0644 "$SOURCE_DIR/../patches/remote-settings.patch" \
-    "$PATCH_ROOT/remote-settings.patch"
-
   mkdir -p "$WORKSPACE_ROOT/owner" "$WORKSPACE_ROOT/member2" \
     "$WORKSPACE_ROOT/member3" "$WORKSPACE_ROOT/member4" "$PROJECT_SHARED_ROOT/projects"
   chmod 700 "$WORKSPACE_ROOT" "$WORKSPACE_ROOT/owner" "$WORKSPACE_ROOT/member2" \

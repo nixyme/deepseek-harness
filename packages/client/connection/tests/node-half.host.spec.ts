@@ -132,16 +132,36 @@ describe('connection node half', () => {
     try {
       const rows: IndexInjection[] = []
       ctx.emit('webserver/index-inject', rows)
-      expect(rows).toEqual([{
-        kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
-          backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
-          generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
+      expect(rows).toEqual([
+        {
+          kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
+            backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
+            generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
+          },
         },
-      }])
+        { kind: 'global', name: '__DSH_AUTHENTICATED_REMOTE__', value: false },
+      ])
       await dispose()
       const after: IndexInjection[] = []
       ctx.emit('webserver/index-inject', after)
       expect(after).toEqual([])
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('publishes mandatory-principal support as a boolean page capability', async () => {
+    const { ctx, dispose } = await mounted({
+      principal: { secret: 'deployment-secret-with-thirty-two-chars' },
+    })
+    try {
+      const rows: IndexInjection[] = []
+      ctx.emit('webserver/index-inject', rows)
+      expect(rows).toContainEqual({
+        kind: 'global',
+        name: '__DSH_AUTHENTICATED_REMOTE__',
+        value: true,
+      })
     } finally {
       await dispose()
     }

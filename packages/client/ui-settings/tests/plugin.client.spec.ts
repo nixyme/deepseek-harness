@@ -6,12 +6,16 @@ import { SettingsSchemaService } from '../src/client/schema.ts'
 import { SettingsScopeBinder } from '../src/client/settings-scope.ts'
 import { apply as hostApply } from '../src/index.ts'
 
-function bench() {
+function bench(options: { authenticatedRemote?: boolean } = {}) {
   const describeCall = vi.fn().mockResolvedValue({
     ok: true, value: { writable: true, hasDocument: true, namespaces: [] },
   })
   const ctx = new Context()
   const remote = new TestRemote(ctx, { settings: { describe: describeCall } })
+  if (options.authenticatedRemote !== undefined) {
+    remote.$host = { home: undefined, isLoopback: false }
+    ctx.provide('connection', { authenticatedRemote: options.authenticatedRemote })
+  }
   return { ctx, describeCall, remote, fiber: ctx.plugin({ inject: [...inject], apply }) }
 }
 
@@ -25,6 +29,18 @@ describe('settings domain base plugin', () => {
     await fiber.await()
     expect(ctx.get('settingsScope')).toBeInstanceOf(SettingsScopeBinder)
     expect(ctx.get('settingsSchema')).toBeInstanceOf(SettingsSchemaService)
+    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalledTimes(1) })
+  })
+
+  it('does not read settings on an unauthenticated remote page', async () => {
+    const { describeCall, fiber } = bench({ authenticatedRemote: false })
+    await fiber.await()
+    expect(describeCall).not.toHaveBeenCalled()
+  })
+
+  it('reads Host settings on a principal-authenticated remote page', async () => {
+    const { describeCall, fiber } = bench({ authenticatedRemote: true })
+    await fiber.await()
     await vi.waitFor(() => { expect(describeCall).toHaveBeenCalledTimes(1) })
   })
 

@@ -109,6 +109,7 @@ export interface ClientTransportHooks {
 interface ClientTransportGlobal {
   __DSH_TRANSPORT__?: ClientTransportHooks
   __DSH_CONNECTION_RECOVERY__?: unknown
+  __DSH_AUTHENTICATED_REMOTE__?: unknown
 }
 
 /**
@@ -122,6 +123,8 @@ export interface ConnectionHandle {
    * ({@link ClientTransportHooks.ownsHost}), or the context is not a browser.
    */
   readonly isLoopback: boolean
+  /** Whether the deployment serves this page behind mandatory request principals. */
+  readonly authenticatedRemote: boolean
   /** Current Remote event generation and the Host facts carried by its opening frame. */
   readonly generation: ConnectionGenerationState
   /** Current recovery lifecycle for connection-specific consumers. */
@@ -190,6 +193,7 @@ export function apply(ctx: Context): void {
   const fixture = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
   const fixtureRpc = fixture ? createFixtureConnectionRpc() : undefined
   const transport = (globalThis as ClientTransportGlobal).__DSH_TRANSPORT__
+  const authenticatedRemote = (globalThis as ClientTransportGlobal).__DSH_AUTHENTICATED_REMOTE__ === true
   const recovery = resolveConnectionConfig((globalThis as ClientTransportGlobal).__DSH_CONNECTION_RECOVERY__)
   const rpc = fixtureRpc ?? transport?.rpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
   let generationSource: ConnectionGenerationSource | undefined
@@ -231,6 +235,7 @@ export function apply(ctx: Context): void {
   }
   const handle: ConnectionHandle = {
     isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    authenticatedRemote,
     generation: {
       getSnapshot: () => generation,
       subscribe: (listener) => {

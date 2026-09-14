@@ -186,7 +186,10 @@ export function createPathPolicy(options = {}) {
 
     if (endpoint === 'directoryPicker/list') {
       if (args.path === undefined) args.path = primaryRoot(userId)
-      const result = await authorize(userId, args.path, { access: 'read' })
+      // Directory enumeration is workspace navigation, not a read-only data
+      // resource. Shared skills stay file-readable without exposing directory
+      // names to another member.
+      const result = await authorize(userId, args.path, { access: 'picker' })
       if (result.allowed) {
         args.path = result.path
         return { allowed: true }

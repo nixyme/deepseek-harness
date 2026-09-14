@@ -10,12 +10,10 @@ kernel security boundary between mutually hostile users.
 
 ## Architecture
 
-- `server/` contains the authentication manager, reverse proxy, per-user
-  backend lifecycle, path policy, shared Skill synchronization, and systemd
-  user services.
+- `server/` contains the authentication manager, reverse proxy, shared backend
+  lifecycle, path policy, shared Skill synchronization, and systemd user
+  services.
 - `tools/` contains the workspace migration utility.
-- `patches/` contains the build-time patch that keeps remote settings
-  Host-backed after the edge proxy authenticates the browser.
 - `nginx/` contains a reference TLS reverse-proxy configuration.
 - `local-manager/` contains an optional macOS launcher for status, logs,
   source mirroring, Skill publishing, and SFTP-backed workspace sync.
@@ -28,10 +26,11 @@ Each user receives:
 - a signed 30-day cookie bound to the user ID and client IP;
 - an on-demand Harness process on a dedicated loopback port.
 
-Skills, profiles, plugins, and agent presets are shared read-only. Shared
-projects live in the configured `SHARED_PROJECTS_ROOT`. The canonical
-instruction file is generated once and symlinked into every user's Harness
-home and workspace.
+Skills, profiles, plugins, and agent presets are shared read-only. Members see
+only their own Workspace and conversation records; the directory picker also
+enumerates only the signed-in member's private Workspace root. The canonical
+instruction file is generated once and symlinked into every user's Harness home
+and workspace.
 
 ## Host requirements
 
@@ -98,10 +97,9 @@ The source checkout remains on the official repository and is updated with:
 deepseek-harness-update
 ```
 
-The update script refuses a dirty checkout, applies the remote-settings patch
-only for the build, and does not restart the service after a failed build. A
-failed update restores the previous revision and rebuilds its dependencies and
-artifacts before exiting.
+The update script refuses a dirty checkout and does not restart the service after
+a failed build. A failed update restores the previous revision and rebuilds its
+dependencies and artifacts before exiting.
 
 ## Local manager
 

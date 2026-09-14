@@ -55,7 +55,13 @@ export function apply(ctx: Context): void {
   const schema = new SettingsSchemaService(ctx)
   // Resolved once here, where `remote` is declared in this plugin's own
   // `inject`; the binder hands the same answer to every scope it binds.
-  const persistence = ctx.remote.$host.isLoopback ? 'host' : 'memory'
+  // Host settings cross the same authenticated API as every other page fact.
+  // A proxy that enforces request principals opts this non-loopback page in;
+  // an ordinary remote page remains process-local by design.
+  const connection = ctx.get('connection') as { authenticatedRemote?: boolean } | undefined
+  const persistence = ctx.remote.$host.isLoopback || connection?.authenticatedRemote === true
+    ? 'host'
+    : 'memory'
   const mirror = new SettingsDescribeMirror(ctx, persistence)
   ctx.effect(() => {
     const disposers = [
