@@ -70,7 +70,12 @@ export function bundleRoster(bundles: readonly string[], anchor: string = fileUR
     if (disabled !== undefined && disabled !== null && typeof disabled !== 'boolean') {
       throw new Error(`client-test-runtime: browser row ${name} has a \`disabled\` value this reader cannot evaluate (a !!js expression)`)
     }
-    rows.push({ name, inject: declaration.inject ?? [], immediately: declaration.immediately === true })
+    rows.push({
+      name,
+      inject: declaration.inject ?? [],
+      immediately: declaration.immediately === true,
+      lazy: declaration.lazy === true,
+    })
   }
   return ClientRoster.of(rows)
 }

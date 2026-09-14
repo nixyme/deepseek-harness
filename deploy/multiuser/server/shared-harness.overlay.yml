@@ -4,11 +4,6 @@
 # proxy to the caller's private Workspace root.
 - id: directory-picker
   disabled: true
-# Shared deployments boot over a low-bandwidth WAN. PDF.js embeds its worker,
-# cmaps, fonts, and wasm decoders in one 6.9 MiB browser bundle; defer the
-# optional PDF renderer until the plugin graph supports a lazy browser tier.
-- id: ui-sidebar-documentpreview
-  disabled: true
 # Marketplace and model-lens UIs are nonessential on the team server and do not
 # participate in session creation, chat delivery, workspace access, or settings.
 - id: dsh-market

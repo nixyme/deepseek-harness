@@ -1,6 +1,6 @@
 /**
  * Production client composition without the page: mount the Loader over a
- * module system, create every manifest row, wait for quiescence, and audit
+ * module system, create every eager manifest row, wait for quiescence, and audit
  * activation. `AppWebEntry` and the whole-client test carrier both call it.
  * @module @deepseek-ai/dsh-client-web/src/boot-client
  */
@@ -44,7 +44,7 @@ export async function bootClient(options: ClientBootOptions): Promise<void> {
     onEntryState?.(entry.options.name, STATE_LABELS[entry.fiber.state])
   })
 
-  const rows = manifest.plugins.map(row => row.id)
+  const rows = manifest.plugins.filter(row => !row.lazy).map(row => row.id)
   await Promise.all(rows.map(async (name) => {
     onEntryState?.(name, 'loading')
     const id = await loader.create({ name })
@@ -53,6 +53,47 @@ export async function bootClient(options: ClientBootOptions): Promise<void> {
 
   await loader.await()
   assertEntriesActive(ctx)
+}
+
+/** Per-Loader activation queue: concurrent requests for one lazy entry share one task and one failure. */
+const lazyActivations = new WeakMap<object, Map<string, Promise<void>>>()
+
+/**
+ * Activate one lazy graph row after boot. Browser HTTP caching owns repeat bytes; this
+ * owns concurrent and repeated Cordis activation. A failed task is forgotten so the next
+ * call can retry; a failed in-tree entry is removed before that retry recreates it.
+ * @param ctx - booted root Context carrying the Loader.
+ * @param name - lazy manifest row id, also the Loader entry name.
+ * @returns resolves when the entry fiber reports `active`.
+ */
+export function activateLazyClientPlugin(ctx: Context, name: string): Promise<void> {
+  const loader = ctx.loader
+  let byName = lazyActivations.get(loader)
+  if (byName === undefined) {
+    byName = new Map()
+    lazyActivations.set(loader, byName)
+  }
+  const pending = byName.get(name)
+  if (pending !== undefined) return pending
+  const task = (async(): Promise<void> => {
+    const existing = [...loader.entries()].find(entry => entry.options.name === name)
+    if (existing?.fiber !== undefined) {
+      await existing.fiber.await()
+      if (STATE_LABELS[existing.fiber.state] === 'active') return
+      await loader.remove(existing.id)
+    }
+    const id = await loader.create({ name })
+    const entry = loader.resolve(id)
+    const fiber = entry.fiber
+    if (fiber === undefined || STATE_LABELS[fiber.state] !== 'active') {
+      throw new Error(`web boot: lazy entry "${name}" did not activate`)
+    }
+    await fiber.await()
+    if (STATE_LABELS[fiber.state] !== 'active') throw new Error(`web boot: lazy entry "${name}" did not activate`)
+  })()
+  byName.set(name, task)
+  void task.catch(() => { byName.delete(name) })
+  return task
 }
 
 /**

@@ -107,9 +107,9 @@ describe('bundleRoster on a scratch installation', () => {
 `)
     const roster = bundleRoster(['@t/base', '@t/web'], scratch.anchor)
     expect(roster.rows).toEqual([
-      { name: '@t/a', inject: ['@t/b'], immediately: true },
-      { name: '@t/b', inject: [], immediately: false },
-      { name: 'plain', inject: [], immediately: false },
+      { name: '@t/a', inject: ['@t/b'], immediately: true, lazy: false },
+      { name: '@t/b', inject: [], immediately: false, lazy: false },
+      { name: 'plain', inject: [], immediately: false, lazy: false },
     ])
     expect(scratch.roster(['@t/base'])).toEqual(['@t/a', '@t/c'])
   })

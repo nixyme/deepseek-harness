@@ -1,7 +1,10 @@
 /** Builtin PDF registration through document metadata and the keyed body slot. */
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '../index.ts'
-import type { DocumentPreviewDefinition } from '../document/registry.ts'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
+import type { DocumentPreviewDefinition } from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { PdfBody, type PdfBodyInjected } from './PdfBody.tsx'
 import { createPdfStore } from './store.ts'
 import { en, zh } from './locales.ts'
@@ -17,6 +20,9 @@ export const PDF_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/p
 export function pdfBodyDefinition(title: () => string): DocumentPreviewDefinition {
   return { id: PDF_BODY_ID, extensions: ['pdf'], priority: 'builtin', title, loading: 'bytes-complete', wrap: false }
 }
+
+/** @param ctx - context carrying the locale, document registry, and slot registry. */
+export const inject = ['locale', 'slots', 'documentPreviews']
 
 /** @param ctx - context carrying the locale, document registry, and slot registry. */
 export function apply(ctx: Context): void {

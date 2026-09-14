@@ -10,8 +10,9 @@
  * business, read through its face. Every import from another
  * client plugin is a type.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { Context as ClientContext, FiberState } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { Loader } from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-resources/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -30,11 +31,11 @@ import { createTextStore } from './store.ts'
 import { en, zh } from './locales.ts'
 import { DocumentPreviewRegistry } from './document/registry.ts'
 import { documentTabInfoFactory } from './document/contract.ts'
+export { LoadingIndicator } from './LoadingIndicator.tsx'
 import { apply as registerText } from './text/index.ts'
 import { apply as registerMarkdown } from './markdown/index.ts'
 import { apply as registerHtml } from './html/index.ts'
 import { apply as registerImage } from './image/index.ts'
-import { apply as registerPdf } from './pdf/index.ts'
 import { apply as registerCode } from './code/index.ts'
 
 // Values stay package-private unless another package needs them; the plugin
@@ -57,6 +58,12 @@ declare module '@deepseek-ai/cordis' {
 
 /** This package's copy namespace. */
 const NS = 'sidebarDocumentPreview'
+
+/** Lazy companion package mounted only when the reader opens a PDF. */
+const PDF_PLUGIN_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview-pdf'
+
+/** Runtime mirror of cordis FiberState.ACTIVE; the vendored const enum cannot cross bundle faces. */
+const ACTIVE_FIBER_STATE = 2 as FiberState
 
 declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
   interface SidebarRightResourceParamsMap {
@@ -95,13 +102,38 @@ export function apply(ctx: ClientContext): void {
     (file, signal) => ctx.remote.workspaceFiles.readAll(file.sessionId, file.path, signal),
   )
   const source = { getSnapshot: previews.getSnapshot, subscribe: previews.subscribe }
+  const pdfActivations = new Map<string, Promise<void>>()
+  const activatePdf = (): Promise<void> => {
+    const pending = pdfActivations.get(PDF_PLUGIN_ID)
+    if (pending !== undefined) return pending
+    const task = (async(): Promise<void> => {
+      const loader: Loader = ctx.loader
+      const existing = [...loader.entries()].find(entry => entry.options.name === PDF_PLUGIN_ID)
+      if (existing?.fiber !== undefined) {
+        await existing.fiber.await()
+        if (existing.fiber.state === ACTIVE_FIBER_STATE) return
+        await loader.remove(existing.id)
+      }
+      const id = await loader.create({ name: PDF_PLUGIN_ID })
+      const entry = loader.resolve(id)
+      const fiber = entry.fiber
+      if (fiber === undefined) throw new Error('ui-sidebar-documentpreview: lazy PDF entry did not activate')
+      await fiber.await()
+      if (fiber.state !== ACTIVE_FIBER_STATE) throw new Error('ui-sidebar-documentpreview: lazy PDF entry did not activate')
+    })()
+    pdfActivations.set(PDF_PLUGIN_ID, task)
+    void task.catch(() => { pdfActivations.delete(PDF_PLUGIN_ID) })
+    return task
+  }
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
     {
       name: 'sidebar.right.pane.tab', key: TEXTPREVIEW_ID, locale: NS, store,
       children: {
         'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
       },
-      inject: (sessionId, actions): TextPreviewInjected => ({ ...face(sessionId, actions), hooks: { documentPreviews: source } }),
+      inject: (sessionId, actions): TextPreviewInjected => ({
+        ...face(sessionId, actions), activatePdf, hooks: { documentPreviews: source },
+      }),
     },
     TextPreview,
   )), 'ui-sidebar-documentpreview: text body')
@@ -113,6 +145,5 @@ export function apply(ctx: ClientContext): void {
   registerMarkdown(ctx)
   registerHtml(ctx)
   registerImage(ctx)
-  registerPdf(ctx)
   registerCode(ctx)
 }

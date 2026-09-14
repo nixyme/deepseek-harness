@@ -73,6 +73,8 @@ export interface DshClientManifest {
   inject?: string[]
   /** Boot phase-one registration barrier; absent means the shared application batch. */
   immediately?: boolean
+  /** Omit from every initial batch and boot activation; activate only when a consumer requests it. */
+  lazy?: boolean
   /**
    * Exact module-table requests beyond the implicit client baseline, including
    * subpaths such as `<pkg>/client`; absent means baseline externals only.

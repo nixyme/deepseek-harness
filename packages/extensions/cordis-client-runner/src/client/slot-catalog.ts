@@ -2354,11 +2354,11 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '{ hooks: { tabInfo: SlotHookFactory<\'sidebar.right.tab.document\', UseSidebarRightTabInfo> } }',
     declaredBy: 'an entry in \'sidebar.right.pane.tab\' (client-ui-sidebar-documentpreview), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-sidebar-documentpreview-pdf PdfBody',
       'client-ui-sidebar-documentpreview CodeBody',
       'client-ui-sidebar-documentpreview HtmlBody',
       'client-ui-sidebar-documentpreview ImageBody',
       'client-ui-sidebar-documentpreview MarkdownBody',
-      'client-ui-sidebar-documentpreview PdfBody',
       'client-ui-sidebar-documentpreview TextBody',
     ],
     replaceRisk: 'none',

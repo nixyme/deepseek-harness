@@ -5,7 +5,7 @@ import {
   type ClientBundleRegistration, type ClientModuleLoader, type ClientModuleLoaderTarget, type WebBootEntry, type WebBootGraph,
 } from '@deepseek-ai/dsh-client-modules/client'
 import { describe, expect, it } from 'vitest'
-import { assertEntriesActive, bootClient, type EntryStateLabel } from '../src/boot-client.ts'
+import { activateLazyClientPlugin, assertEntriesActive, bootClient, type EntryStateLabel } from '../src/boot-client.ts'
 import { FIBER_STATE } from '../src/loader-status.ts'
 
 const BOOTSTRAP_ID = '@deepseek-ai/dsh-client-modules'
@@ -74,6 +74,31 @@ describe('bootClient', () => {
     await expect(bootClient({ ctx, modules, manifest: modules.manifest })).rejects.toThrow(
       'orphan: pending (waiting for service: nothing)',
     )
+    await ctx.fiber.dispose()
+  })
+
+  it('defers lazy rows at boot and activates the named row on demand', async () => {
+    const graph: WebBootGraph = {
+      rev: 'graph',
+      entries: [
+        { id: 'eager', url: '/eager.js', rev: '1' },
+        { id: 'lazy', url: '/lazy.js', rev: '1', lazy: true },
+      ],
+      batches: [{ phase: 'application', url: '/application.js', rev: 'batch', entries: ['eager'] }],
+    }
+    const lazyPlugin = { apply: (ctx: Context) => { ctx.reflect.provide('lazyMarker', true) } }
+    const { modules } = modulesOf(graph, { eager: { apply: () => {} }, lazy: lazyPlugin })
+    const ctx = new Context()
+    const sink = stateSink()
+
+    await bootClient({ ctx, modules, manifest: modules.manifest, onEntryState: sink.onEntryState })
+    expect([...ctx.loader.entries()].map(entry => entry.options.name)).toEqual(['eager'])
+    expect(sink.states.has('lazy')).toBe(false)
+
+    await activateLazyClientPlugin(ctx, 'lazy')
+    expect([...ctx.loader.entries()].map(entry => entry.options.name)).toEqual(['eager', 'lazy'])
+    expect(ctx.get('lazyMarker')).toBe(true)
+    await expect(activateLazyClientPlugin(ctx, 'lazy')).resolves.toBeUndefined()
     await ctx.fiber.dispose()
   })
 

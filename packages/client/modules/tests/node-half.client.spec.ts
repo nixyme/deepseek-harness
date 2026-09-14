@@ -560,6 +560,20 @@ describe('client bundle activation', () => {
     expect(service.artifactBaseline('@fixture/unknown')).toBeUndefined()
   })
 
+  it('keeps lazy bundles in the graph but out of every startup batch', () => {
+    const eagerName = '@fixture/lazy-eager-companion'
+    const lazyName = '@fixture/lazy-pdf'
+    writeBuiltPackage(eagerName, {})
+    writeBuiltPackage(lazyName, { lazy: true })
+    const graph = construct([eagerName, lazyName]).graph()
+    const lazy = graph.entries.find(entry => entry.id === lazyName)
+
+    expect(graph.entries.map(entry => entry.id)).toEqual([eagerName, lazyName])
+    expect(lazy).toMatchObject({ lazy: true })
+    expect(graph.batches.flatMap(batch => batch.entries)).toEqual([eagerName])
+    expect(graph.batches.map(batch => batch.url)).not.toContain(lazy!.url)
+  })
+
   it('splits startup combos before the map-form URL exceeds 3 KiB', async () => {
     const packageNames = Array.from({ length: 48 }, (_, index) => (
       `@fixture/combo-url-${String(index).padStart(3, '0')}-${'x'.repeat(40)}`

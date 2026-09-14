@@ -59,6 +59,8 @@ export interface WebBootEntry {
   inject?: string[]
   /** Stage-one prefetch mark: load the script for factory registration during module-face boot. */
   immediately?: boolean
+  /** Omit from initial batches and boot activation; the row remains available for consumer-driven arrival. */
+  lazy?: boolean
   /** Non-baseline module specifiers this row requests; omitted when it requests none. */
   external?: string[]
 }
@@ -106,6 +108,8 @@ export interface BootModuleRow {
   inject: string[]
   /** Module specifiers this row requests from the module table ([] when the wire omits them). */
   external: string[]
+  /** Whether this row has no initial batch and is fetched only by a consumer. */
+  lazy: boolean
 }
 
 /** The cordis-plugin view of one boot row: what entry composition needs (optional wire fields normalized). */
@@ -116,6 +120,8 @@ export interface BootPluginRow {
   inject: string[]
   /** Stage-one prefetch tier (false when the wire omits it). */
   immediately: boolean
+  /** Whether boot must defer this row (false when the wire omits it). */
+  lazy: boolean
 }
 
 /** The parsed boot manifest: one wire, two consumer views. */
@@ -168,11 +174,15 @@ export function parseDshClient(pkgName: string, value: unknown): DshClientManife
   if (decl.immediately !== undefined && typeof decl.immediately !== 'boolean') {
     throw new Error(`client-modules: ${pkgName} dsh.client.immediately must be a boolean`)
   }
+  if (decl.lazy !== undefined && typeof decl.lazy !== 'boolean') {
+    throw new Error(`client-modules: ${pkgName} dsh.client.lazy must be a boolean`)
+  }
   return {
     platform: decl.platform,
     ...(inject !== undefined ? { inject } : {}),
     ...(external !== undefined ? { external } : {}),
     ...(decl.immediately !== undefined ? { immediately: decl.immediately } : {}),
+    ...(decl.lazy !== undefined ? { lazy: decl.lazy } : {}),
   }
 }
 
@@ -244,17 +254,22 @@ export function parseBootManifest(wire: unknown): BootManifest {
     if (row.immediately !== undefined && typeof row.immediately !== 'boolean') {
       throw new Error(`client-modules: boot manifest entry ${where} immediately must be a boolean`)
     }
+    if (row.lazy !== undefined && typeof row.lazy !== 'boolean') {
+      throw new Error(`client-modules: boot manifest entry ${where} lazy must be a boolean`)
+    }
     moduleFields.push({
       id: row.id,
       url: row.url,
       rev: row.rev,
       inject: inject === undefined ? [] : [...inject],
       external: external === undefined ? [] : [...external],
+      lazy: row.lazy === true,
     })
     plugins.push({
       id: row.id,
       inject: inject === undefined ? [] : [...inject],
       immediately: row.immediately === true,
+      lazy: row.lazy === true,
     })
   }
 
@@ -293,10 +308,10 @@ export function parseBootManifest(wire: unknown): BootManifest {
   }
   const modules = moduleFields.map((row): BootModuleRow => {
     const initialUrl = initialUrls.get(row.id)
-    if (initialUrl === undefined) {
+    if (initialUrl === undefined && !row.lazy) {
       throw new Error(`client-modules: boot manifest entry "${row.id}" belongs to no initial-load batch`)
     }
-    return { ...row, initialUrl }
+    return { ...row, initialUrl: initialUrl ?? row.url }
   })
   return { rev: graph.rev, modules, plugins }
 }

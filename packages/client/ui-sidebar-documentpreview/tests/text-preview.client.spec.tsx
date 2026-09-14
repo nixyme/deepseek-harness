@@ -619,3 +619,59 @@ describe('TextPreview — header controls', () => {
     expect(h.instance.getSnapshot().byTab[TAB_ID]).toBeUndefined()
   })
 })
+
+describe('TextPreview — lazy PDF activation', () => {
+  const PDF_ADDRESS = 'dsh-resource://file/session/s-1/work/report.pdf'
+
+  function pdfProps(h: ReturnType<typeof harness>, activatePdf: () => Promise<void>): TextPreviewProps {
+    const base = h.props()
+    return {
+      ...base,
+      useTabInfo: () => {
+        const standard = base.useTabInfo()
+        return {
+          ...standard,
+          tab: { ...standard.tab, contentId: PDF_ADDRESS, title: 'report.pdf' },
+        }
+      },
+      useDocumentPreviews: (selector: (value: readonly DocumentPreviewDefinition[]) => readonly DocumentPreviewDefinition[]) =>
+        selector([]),
+      activatePdf,
+      hooks: { documentPreviews: { getSnapshot: () => [], subscribe: () => () => {} } },
+    } as unknown as TextPreviewProps
+  }
+
+  it('shows progress, activates only on open, and does not read the PDF as text', async () => {
+    const h = harness()
+    let activate!: () => void
+    const activatePdf = vi.fn(() => new Promise<void>((resolve) => { activate = resolve }))
+    const view = render(<TextPreview {...pdfProps(h, activatePdf)} />)
+
+    expect(view.container.querySelector('[data-document-preview-activation="loading"]')).not.toBeNull()
+    expect(h.read).not.toHaveBeenCalled()
+    expect(h.bytes).not.toHaveBeenCalled()
+    act(() => { activate() })
+    await settle()
+    expect(activatePdf).toHaveBeenCalledTimes(1)
+    expect(view.container.querySelector('[data-document-preview-activation]')).toBeNull()
+  })
+
+  it('explains activation failure and retries the same lazy plugin', async () => {
+    const h = harness()
+    const activatePdf = vi.fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined)
+    const view = render(<TextPreview {...pdfProps(h, activatePdf)} />)
+    await settle()
+    const failed = view.container.querySelector('[data-document-preview-activation="failed"]')
+    expect(failed?.textContent).toContain('pdfEngineFailed')
+
+    const retry = failed?.querySelector<HTMLButtonElement>('[data-document-preview-retry]')
+    if (retry === null || retry === undefined) throw new Error('expected the PDF activation retry control')
+    fireEvent.click(retry)
+    await settle()
+    expect(activatePdf).toHaveBeenCalledTimes(2)
+    expect(view.container.querySelector('[data-document-preview-activation]')).toBeNull()
+    expect(h.read).not.toHaveBeenCalled()
+  })
+})

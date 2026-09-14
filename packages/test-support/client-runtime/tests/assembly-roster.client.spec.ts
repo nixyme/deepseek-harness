@@ -25,7 +25,9 @@ describe('graphFromRoster', () => {
 
   it('parses through the production validator to plugin rows that mirror the roster, refusing duplicates and an empty roster', () => {
     const manifest = parseBootManifest(graphFromRoster(ROWS))
-    expect(manifest.plugins).toEqual(ROWS.map(row => ({ id: row.name, inject: [...row.inject], immediately: row.immediately })))
+    expect(manifest.plugins).toEqual(ROWS.map(row => ({
+      id: row.name, inject: [...row.inject], immediately: row.immediately, lazy: row.lazy === true,
+    })))
     expect(manifest.modules.map(row => row.initialUrl)).toEqual(['/plugins/local.js', '/plugins/local.js', '/plugins/local.js'])
     const row = ROWS[1]!
     expect(() => parseBootManifest(graphFromRoster([row, row]))).toThrow('duplicate graph entry "@x/a"')
@@ -52,6 +54,14 @@ describe('graphFromRoster', () => {
     await expect(modules.import('@x/b')).resolves.toBe(b)
     expect(modules.manifest).toEqual(parseBootManifest(graphFromRoster(ROWS)))
     expect(loaded).toEqual([])
+  })
+
+  it('gives lazy roster rows no initial batch while retaining their single-resource URL', () => {
+    const graph = graphFromRoster([{ name: '@x/lazy', inject: [], immediately: false, lazy: true }])
+    expect(graph.batches).toEqual([])
+    const manifest = parseBootManifest(graph)
+    expect(manifest.plugins).toEqual([{ id: '@x/lazy', inject: [], immediately: false, lazy: true }])
+    expect(manifest.modules[0]).toMatchObject({ id: '@x/lazy', initialUrl: '/plugins/@x/lazy/client.js' })
   })
 })
 

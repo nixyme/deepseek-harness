@@ -32,6 +32,7 @@ const row = (id: string, fields: Partial<BootModuleRow> = {}): BootModuleRow =>
     rev: '0',
     inject: [],
     external: [],
+    lazy: false,
     ...fields,
   })
 
@@ -363,8 +364,8 @@ describe('boot manifest wire', () => {
       batches: [{ phase: 'application', url: '/batch.js', rev: 'batch', entries: ['a', 'b'] }],
     })
     expect(manifest.modules).toEqual([
-      { id: 'a', url: '/plugins/a/client.js', initialUrl: '/batch.js', rev: '1', inject: ['b'], external: [] },
-      { id: 'b', url: '/plugins/b/client.js', initialUrl: '/batch.js', rev: '2', inject: [], external: ['react'] },
+      { id: 'a', url: '/plugins/a/client.js', initialUrl: '/batch.js', rev: '1', inject: ['b'], external: [], lazy: false },
+      { id: 'b', url: '/plugins/b/client.js', initialUrl: '/batch.js', rev: '2', inject: [], external: ['react'], lazy: false },
     ])
   })
 
@@ -374,6 +375,23 @@ describe('boot manifest wire', () => {
       entries: [{ id: 'a', url: '/a', rev: '1', external: 'react' }],
       batches: [{ phase: 'application', url: '/batch.js', rev: 'batch', entries: ['a'] }],
     })).toThrow('client-modules: boot manifest entry "a" external must be a string array')
+  })
+
+  it('makes a lazy row addressable without an initial batch', () => {
+    const manifest = parseBootManifest({
+      rev: 'graph',
+      entries: [{ id: 'lazy', url: '/lazy.js', rev: '1', lazy: true }],
+      batches: [],
+    })
+    expect(manifest.modules).toEqual([{
+      id: 'lazy', url: '/lazy.js', initialUrl: '/lazy.js', rev: '1', inject: [], external: [], lazy: true,
+    }])
+    expect(manifest.plugins).toEqual([{ id: 'lazy', inject: [], immediately: false, lazy: true }])
+    expect(() => parseBootManifest({
+      rev: 'graph',
+      entries: [{ id: 'lazy', url: '/lazy.js', rev: '1', lazy: 'yes' }],
+      batches: [],
+    })).toThrow('boot manifest entry "lazy" lazy must be a boolean')
   })
 
   it('requires the batch table', () => {

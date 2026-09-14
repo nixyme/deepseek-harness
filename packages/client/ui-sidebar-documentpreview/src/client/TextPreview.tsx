@@ -30,6 +30,9 @@ import { PLAIN_BODY_ID } from './text/index.ts'
 import { loadedPages, lastLineLoaded, scrollToLine } from './text/lines.ts'
 import css from './TextPreview.module.css'
 
+/** Stable body id owned by the lazy PDF companion; matching is intentional and does not import its bundle. */
+const LAZY_PDF_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf'
+
 export { linesOf, loadedPages, lastLineLoaded, scrollToLine } from './text/lines.ts'
 export type { LoadedPage } from './text/lines.ts'
 
@@ -58,7 +61,11 @@ function usePathClipped(
 
 /** Private registration inputs; the framework binds the registry source to useDocumentPreviews. */
 export interface TextPreviewInjected extends TextInjected {
-  readonly hooks: { readonly documentPreviews: ObservableSnapshot<readonly DocumentPreviewDefinition[]> }
+  /** Mount the lazy PDF companion; omitted only by direct non-PDF component fixtures. */
+  readonly activatePdf?: () => Promise<void>
+  readonly hooks: {
+    readonly documentPreviews: ObservableSnapshot<readonly DocumentPreviewDefinition[]>
+  }
 }
 
 /** The body's composed props: the tab, its navigation, the shared store and face, and copy. */
@@ -76,7 +83,7 @@ export type TextPreviewProps =
  */
 export function TextPreview({
   useTabInfo, useResource, useStore, actions, loadPage, reloadPages,
-  loadAll, reloadAll, useDocumentPreviews, renderSlot, t,
+  loadAll, reloadAll, activatePdf, useDocumentPreviews, renderSlot, t,
 }: TextPreviewProps): ReactNode {
   const { tab } = useTabInfo()
   const { navigation, signal } = tab
@@ -99,8 +106,28 @@ export function TextPreview({
   const pathRef = useRef<HTMLDivElement | null>(null)
   const pathTextRef = useRef<HTMLSpanElement | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [pdfActivation, setPdfActivation] = useState<'loading' | 'failed' | undefined>()
+  const [pdfAttempt, setPdfAttempt] = useState(0)
   const displayPath = meta.value?.absolutePath ?? current?.complete?.absolutePath ?? file.path
+  const activatePdfRenderer = activatePdf ?? (() => Promise.reject(new Error(
+    'ui-sidebar-documentpreview: PDF activation is unavailable in this component fixture',
+  )))
+  const isPdf = /\.pdf$/u.test(file.path.replaceAll('\\', '/').toLowerCase())
   usePathClipped(pathRef, pathTextRef, displayPath, state !== undefined)
+  useEffect(() => {
+    if (!isPdf) {
+      setPdfActivation(undefined)
+      return undefined
+    }
+    let alive = true
+    setPdfActivation('loading')
+    activatePdfRenderer().then(() => {
+      if (alive) setPdfActivation(undefined)
+    }, () => {
+      if (alive) setPdfActivation('failed')
+    })
+    return () => { alive = false }
+  }, [activatePdfRenderer, isPdf, pdfAttempt])
   // Every tab of this type is a `file` resource address, so its params are the
   // `file` type's; the union is narrowed on the one field read, not validated.
   const line = navigation.params !== undefined && 'line' in navigation.params ? navigation.params.line : undefined
@@ -172,6 +199,29 @@ export function TextPreview({
     if (current === undefined || loaded.length === 0) return undefined
     return { kind: 'text', pages: loaded, text: loaded.filter(page => page.lines > 0).map(page => page.text).join('\n'), eof: current.eof }
   }, [mode, loaded, current?.complete, current?.eof])
+
+  if (isPdf && pdfActivation !== undefined && !candidates.some(candidate => candidate.id === LAZY_PDF_BODY_ID)) {
+    const fileName = pathPartsOf(displayPath).name
+    return pdfActivation === 'failed' ? (
+      <div className={css.empty} data-document-preview-activation="failed">
+        <FileTypeIcon kind={classifyFileType(fileName)} size={36} className={css.emptyIcon} />
+        <p className={css.emptyLine}>{t('pdfEngineFailed')}</p>
+        <button
+          type="button"
+          className={css.retry}
+          data-document-preview-retry
+          onClick={() => { setPdfAttempt(value => value + 1) }}
+        >
+          <IconRefreshOutline16 size={14} />
+          {t('retry')}
+        </button>
+      </div>
+    ) : (
+      <div className={css.status} data-document-preview-activation="loading">
+        <LoadingIndicator className={css.statusLine} label={t('pdfEngineLoading')} />
+      </div>
+    )
+  }
 
   if (state === undefined || selected === undefined) {
     return (

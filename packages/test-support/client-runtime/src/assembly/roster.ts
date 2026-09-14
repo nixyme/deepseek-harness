@@ -17,6 +17,8 @@ export interface ClientRosterRow {
   readonly inject: readonly string[]
   /** Stage-one prefetch mark from `dsh.client.immediately` (false when absent). */
   readonly immediately: boolean
+  /** Whether boot defers this row until a consumer activates it. */
+  readonly lazy?: boolean
 }
 
 /** Revision stamped on every synthesized row and batch; nothing is fetched by it. */
@@ -24,8 +26,9 @@ const LOCAL_REV = 'local'
 
 /**
  * Synthesize the raw `WebBootGraph` for `rows`: one `application` batch
- * holding every row, `rev: 'local'`, placeholder `/plugins/<name>/client.js`
- * URLs, since every module is seeded in process and never fetched. Validation
+ * holding eager rows, `rev: 'local'`, placeholder `/plugins/<name>/client.js`
+ * URLs, since every module is seeded in process and never fetched. Lazy rows
+ * remain graph-addressable but have no initial batch. Validation
  * stays with the production `parseBootManifest` inside the module system:
  * duplicate names and an empty roster are rejected there, not here.
  * @param rows - roster rows in composition order.
@@ -38,11 +41,12 @@ export function graphFromRoster(rows: readonly ClientRosterRow[]): WebBootGraph 
     rev: LOCAL_REV,
     ...(row.inject.length > 0 ? { inject: [...row.inject] } : {}),
     ...(row.immediately ? { immediately: true } : {}),
+    ...(row.lazy ? { lazy: true } : {}),
   }))
   return {
     rev: LOCAL_REV,
     entries,
-    batches: [{
+    batches: entries.some(entry => entry.lazy === true) ? [] : [{
       phase: 'application',
       url: '/plugins/local.js',
       rev: LOCAL_REV,

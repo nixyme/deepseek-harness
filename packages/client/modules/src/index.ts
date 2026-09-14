@@ -54,6 +54,7 @@ interface WebBootRowFields {
   /** Module specifiers the package requests from the module table. */
   external: string[]
   immediately: boolean
+  lazy: boolean
 }
 
 /** Filesystem baseline captured before a client artifact snapshot is read. */
@@ -373,6 +374,7 @@ function graphRow(id: string, rev: string, fields: WebBootRowFields): WebBootEnt
     rev,
     ...(fields.inject !== undefined ? { inject: fields.inject } : {}),
     ...(fields.immediately ? { immediately: true } : {}),
+    ...(fields.lazy ? { lazy: true } : {}),
     ...(fields.external.length > 0 ? { external: fields.external } : {}),
   }
 }
@@ -654,7 +656,7 @@ export class ClientModuleRegistry extends Service {
       .filter((record): record is WebPluginRecord => record !== undefined)
     const bootstrapIds = new Set(bootstrap.map(record => record.entry.id))
     const application = entries
-      .filter(entry => !bootstrapIds.has(entry.id))
+      .filter(entry => !bootstrapIds.has(entry.id) && !entry.lazy)
       .map(entry => this.table.get(entry.id))
       .filter((record): record is WebPluginRecord => record !== undefined)
     const artifacts: BatchArtifact[] = []
@@ -738,6 +740,7 @@ export class ClientModuleRegistry extends Service {
       ...(decl.inject !== undefined ? { inject: decl.inject } : {}),
       external: decl.external ?? [],
       immediately: decl.immediately === true,
+      lazy: decl.lazy === true,
     }
     const resolved = { packageName, meta }
     this.pkgMeta.set(sourceKey, resolved)

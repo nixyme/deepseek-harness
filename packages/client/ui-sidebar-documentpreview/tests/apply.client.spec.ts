@@ -23,8 +23,6 @@ import { HtmlBody } from '../src/client/html/HtmlBody.tsx'
 import { HTML_BODY_ID } from '../src/client/html/index.ts'
 import { ImageBody } from '../src/client/image/ImageBody.tsx'
 import { IMAGE_BODY_ID } from '../src/client/image/index.ts'
-import { PdfBody } from '../src/client/pdf/PdfBody.tsx'
-import { PDF_BODY_ID } from '../src/client/pdf/index.ts'
 import { CodeBody } from '../src/client/code/CodeBody.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { textFace } from '../src/client/face.ts'
@@ -40,7 +38,7 @@ interface Recorded {
   component: unknown
 }
 
-async function boot() {
+async function boot(loader?: unknown) {
   const ctx = new Context()
   const tabs = new SidebarRightTabRegistry(ctx)
   const registered: Recorded[] = []
@@ -71,6 +69,7 @@ async function boot() {
   ctx.provide('locale', locale as never)
   ctx.provide('remote', { workspaceFiles } as never)
   ctx.provide('remote.workspaceFiles', workspaceFiles as never)
+  if (loader !== undefined) ctx.provide('loader', loader)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   onTestFinished(async () => { await fiber.dispose() })
   await fiber.await()
@@ -96,7 +95,6 @@ describe('ui-sidebar-documentpreview apply', () => {
       ['sidebar.right.tab.document', MARKDOWN_BODY_ID, 'documentMarkdown', MarkdownBody],
       ['sidebar.right.tab.document', HTML_BODY_ID, 'documentHtml', HtmlBody],
       ['sidebar.right.tab.document', IMAGE_BODY_ID, 'sidebarImage', ImageBody],
-      ['sidebar.right.tab.document', PDF_BODY_ID, 'sidebarPdf', PdfBody],
       ['sidebar.right.tab.document', '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code', 'sidebarCodePreview', CodeBody],
     ])
     expect(registered[0]?.store).toBeDefined()
@@ -127,5 +125,38 @@ describe('ui-sidebar-documentpreview apply', () => {
     await workspaceFiles.readAll.mock.results[0]?.value
     expect(workspaceFiles.readAll).toHaveBeenCalledExactlyOnceWith(FILE.sessionId, FILE.path, controller.signal)
     expect(instance.getSnapshot().byTab[TAB_ID]?.complete?.data).toEqual(new Uint8Array([0, 1, 255]))
+  })
+
+  it('replaces a retained failed lazy PDF entry with an active one', async () => {
+    const PDF_PLUGIN_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview-pdf'
+    const entries = [{
+      id: 'failed-pdf',
+      options: { name: PDF_PLUGIN_ID },
+      fiber: { state: 3, await: async() => {} },
+    }]
+    const loader = {
+      *entries() { yield* entries },
+      create: vi.fn(async({ name }: { name: string }) => {
+        const id = 'active-pdf'
+        entries.push({ id, options: { name }, fiber: { state: 2, await: async() => {} } })
+        return id
+      }),
+      resolve(id: string) { return entries.find(entry => entry.id === id) },
+      remove: vi.fn(async(id: string) => {
+        const index = entries.findIndex(entry => entry.id === id)
+        if (index >= 0) entries.splice(index, 1)
+      }),
+    }
+    const { registered } = await boot(loader)
+    const registration = registered.find(entry => entry.component === TextPreview)
+    if (registration === undefined) throw new Error('missing preview registration')
+    const instance = (registration.store as TextStore).create()
+    const inject = registration.inject as (sessionId: string, actions: unknown) => { activatePdf: () => Promise<void> }
+
+    await expect(inject(SESSION, instance.actions).activatePdf()).resolves.toBeUndefined()
+
+    expect(loader.remove).toHaveBeenCalledWith('failed-pdf')
+    expect(loader.create).toHaveBeenCalledWith({ name: PDF_PLUGIN_ID })
+    expect(entries.map(entry => entry.id)).toEqual(['active-pdf'])
   })
 })
