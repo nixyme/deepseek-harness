@@ -11,9 +11,9 @@
   disabled: true
 # Marketplace and model-lens UIs are nonessential on the team server and do not
 # participate in session creation, chat delivery, workspace access, or settings.
-- id: dshmarket
+- id: dsh-market
   disabled: true
-- id: '@liustack/modlens'
+- id: modlens
   disabled: true
 - id: workspace-controller
   config:
