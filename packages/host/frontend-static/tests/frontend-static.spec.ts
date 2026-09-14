@@ -83,12 +83,15 @@ async function loadComposition(): Promise<Context> {
   return context
 }
 
-/** GET (by default) one path against the running server; returns status, content-type, and the body. */
-async function request(port: number, path: string, init?: RequestInit): Promise<{ status: number; type: string | null; body: string }> {
+/** GET (by default) one path against the running server; returns status, content-type, cache-control, and the body. */
+async function request(
+  port: number, path: string, init?: RequestInit,
+): Promise<{ status: number; type: string | null; cacheControl: string | null; body: string }> {
   const response = await fetch(`http://127.0.0.1:${String(port)}${path}`, init)
   return {
     status: response.status,
     type: response.headers.get('content-type'),
+    cacheControl: response.headers.get('cache-control'),
     body: await response.text(),
   }
 }
@@ -131,6 +134,7 @@ describe('real Loader composition', () => {
     expect(await request(port, '/app.js', { method: 'HEAD' })).toEqual({
       status: 200,
       type: 'text/javascript; charset=utf-8',
+      cacheControl: null,
       body: '',
     })
     await writeFile(join(root!, 'dist', 'app.js'), 'export const rebuilt = true')
@@ -145,12 +149,14 @@ describe('real Loader composition', () => {
       const got = await request(port, path, authenticated())
       expect(got.status).toBe(200)
       expect(got.type).toBe('text/html; charset=utf-8')
+      expect(got.cacheControl).toBe('no-store')
       expect(got.body).toContain('__T__')
       expect(got.body).toContain('shell')
     }
     expect(await request(port, '/', authenticated({ method: 'HEAD' }))).toEqual({
       status: 200,
       type: 'text/html; charset=utf-8',
+      cacheControl: 'no-store',
       body: '',
     })
     untap()
@@ -162,7 +168,7 @@ describe('real Loader composition', () => {
     for (const path of ['/', '/index.html']) {
       const get = await request(port, path, authenticated())
       const head = await request(port, path, authenticated({ method: 'HEAD' }))
-      expect(get).toEqual({ status: 404, type: null, body: '' })
+      expect(get).toEqual({ status: 404, type: null, cacheControl: null, body: '' })
       expect(head).toEqual(get)
     }
 
@@ -180,12 +186,13 @@ describe('real Loader composition', () => {
     for (const path of [...ordinaryMisses, ...assetMisses]) {
       const get = await request(port, path)
       const head = await request(port, path, { method: 'HEAD' })
-      expect(get).toEqual({ status: 404, type: null, body: '' })
+      expect(get).toEqual({ status: 404, type: null, cacheControl: null, body: '' })
       expect(head).toEqual(get)
     }
     expect(await request(port, '/api/no/such/route', authenticated())).toEqual({
       status: 404,
       type: 'text/plain;charset=UTF-8',
+      cacheControl: null,
       body: 'not found',
     })
 

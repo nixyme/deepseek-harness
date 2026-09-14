@@ -37,6 +37,10 @@ export const Config: z<Config> = z.object({
 })
 
 const HTML_MIME = 'text/html; charset=utf-8'
+const INDEX_HEADERS = {
+  'cache-control': 'no-store',
+  'content-type': HTML_MIME,
+} as const
 
 const MIME: Record<string, string> = {
   '.html': HTML_MIME,
@@ -84,12 +88,15 @@ export async function serveStatic(
   }
   let body: string | Buffer
   let type: string
+  let isIndex: boolean
   try {
     if (target === distRoot || target === distIndex) {
       if (!authorizeIndex()) return
+      isIndex = true
       body = await renderIndex()
       type = HTML_MIME
     } else {
+      isIndex = false
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'
     }
@@ -101,7 +108,7 @@ export async function serveStatic(
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': type })
+  res.writeHead(200, isIndex ? INDEX_HEADERS : { 'content-type': type })
   res.end(body)
 }
 
