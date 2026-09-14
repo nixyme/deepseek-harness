@@ -10,7 +10,6 @@
 ## Plan
 
 - [x] Serve rendered SPA index responses with `Cache-Control: no-store`.
-- [ ] Preserve normal caching behavior for revision-addressed assets.
 - [x] Preserve normal caching behavior for revision-addressed assets.
 - [x] Extend real-composition frontend-static tests to assert the shell and asset cache boundary.
 - [x] Run focused tests, typecheck, and production frontend build locally.
