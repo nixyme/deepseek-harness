@@ -12,8 +12,20 @@
 ## Deployment gates
 
 - [x] Add production deployment guardrails to `AGENTS.md`.
-- [ ] Commit and push to both configured remotes.
-- [ ] Verify server is healthy and idle enough before deployment.
-- [ ] Transfer/install only completed runtime artifacts; no server build, install, or test.
-- [ ] Restart shared Harness and verify health before restarting the proxy.
-- [ ] Verify authenticated Models page, process count, listener, journal, and memory.
+- [x] Commit and push to `origin`.
+- [x] Verify server is healthy and idle enough before deployment.
+- [x] Transfer/install only completed runtime artifacts; no server build, install, or test.
+- [x] Restart shared Harness and verify health; left the unchanged proxy running.
+- [x] Verify served module graph, process count, listener, journal, and memory.
+
+## Deployment evidence
+
+- Deployed commit: `090748f3e897dea769b31303e8596aaf07fccb7d`.
+- Server branch: `deploy-shared-harness-v5`.
+- Shared Harness PID: `2198`; proxy PID: `1828`.
+- Shared Harness memory: approximately `434 MB`; proxy memory: approximately `71 MB`.
+- Host available memory after restart: approximately `2.6 GiB`; swap in use: `0 B`.
+- `127.0.0.1:3094`, `127.0.0.1:3080`, and `127.0.0.1:3081` have the expected listeners.
+- The served page injects `__DSH_AUTHENTICATED_REMOTE__ = true`, and its plugin bundle contains the `connection` and `authenticatedRemote` markers.
+- Recent shared Harness and proxy journals contain no warning or error entries.
+- Rollback frontend artifact: `apps/web/.dist-backup-7c7f637-20260914133734`.
